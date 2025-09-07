@@ -27,7 +27,9 @@ export interface Task {
     priority: TaskPriority;
     assigneeId: string;
     projectId: string;
+    creatorId: string;
     dueDate: string; // ISO string
+    duration: number; // in days
     isBlocked?: boolean;
 }
 
@@ -52,7 +54,7 @@ export enum ViewType {
 
 export interface Notification {
     id: string;
-    type: 'comment' | 'completion' | 'assignment';
+    type: 'comment' | 'completion' | 'assignment' | 'update';
     message: string;
     user: {
         name: string;
@@ -60,4 +62,27 @@ export interface Notification {
     };
     timestamp: string; // ISO string
     isRead: boolean;
+}
+
+export enum ActivityType {
+    TaskCreate = 'TASK_CREATE',
+    TaskDelete = 'TASK_DELETE',
+    TaskUpdateStatus = 'TASK_UPDATE_STATUS',
+    TaskUpdatePriority = 'TASK_UPDATE_PRIORITY',
+    TaskUpdateDueDate = 'TASK_UPDATE_DUEDATE',
+    TaskUpdateAssignee = 'TASK_UPDATE_ASSIGNEE',
+}
+
+export interface Activity {
+    id: string;
+    type: ActivityType;
+    timestamp: string; // ISO string
+    userId: string;
+    projectId: string;
+    taskId: string;
+    details: {
+        taskTitle: string;
+        from?: string;
+        to?: string;
+    };
 }

@@ -3,7 +3,7 @@ import { Project, User, TaskPriority, Task, TaskStatus } from '../types';
 
 interface CreateTaskModalProps {
     onClose: () => void;
-    onCreate: (taskData: Omit<Task, 'id'>) => void;
+    onCreate: (taskData: Omit<Task, 'id' | 'creatorId'>) => void;
     projects: Project[];
     users: User[];
     defaultProjectId?: string | null;
@@ -16,6 +16,7 @@ const CreateTaskModal: React.FC<CreateTaskModalProps> = ({ onClose, onCreate, pr
     const [projectId, setProjectId] = useState(defaultProjectId || projects[0]?.id || '');
     const [dueDate, setDueDate] = useState('');
     const [priority, setPriority] = useState<TaskPriority>(TaskPriority.Medium);
+    const [duration, setDuration] = useState(1);
 
     const handleCreate = () => {
         if (!title || !projectId || !assigneeId || !dueDate) {
@@ -30,6 +31,7 @@ const CreateTaskModal: React.FC<CreateTaskModalProps> = ({ onClose, onCreate, pr
             assigneeId,
             projectId,
             dueDate: new Date(dueDate).toISOString(),
+            duration: Number(duration) || 1,
         });
     };
 
@@ -85,6 +87,10 @@ const CreateTaskModal: React.FC<CreateTaskModalProps> = ({ onClose, onCreate, pr
                                 <option value={TaskPriority.High}>High</option>
                              </select>
                         </div>
+                    </div>
+                    <div>
+                        <label htmlFor="duration" className="block text-sm font-medium text-gray-700">Duration (days)</label>
+                        <input type="number" id="duration" value={duration} onChange={e => setDuration(Number(e.target.value))} min="1" className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-primary focus:border-primary" placeholder="e.g., 5" />
                     </div>
                 </div>
                 <div className="p-6 bg-gray-50 rounded-b-lg flex justify-end space-x-3">

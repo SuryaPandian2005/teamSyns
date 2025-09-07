@@ -3,13 +3,15 @@ import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import Dashboard from './components/Dashboard';
 import ProjectView from './components/ProjectView';
-import { ViewType, User, Project, Task, Notification } from './types';
-import { mockUsers as initialUsers, mockProjects as initialProjects, mockTasks as initialTasks, mockNotifications as initialNotifications } from './constants';
+import { ViewType, User, Project, Task, Notification, Activity, ActivityType, TaskStatus } from './types';
+import { mockUsers as initialUsers, mockProjects as initialProjects, mockTasks as initialTasks, mockNotifications as initialNotifications, mockActivities as initialActivities } from './constants';
 import CreateTaskModal from './components/CreateTaskModal';
 import Login from './components/Login';
 import CreateProjectModal from './components/CreateProjectModal';
 import TeamView from './components/TeamView';
 import ProfileView from './components/ProfileView';
+import CalendarView from './components/CalendarView';
+import { format } from 'date-fns';
 
 const App: React.FC = () => {
     const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -17,6 +19,7 @@ const App: React.FC = () => {
     const [projects, setProjects] = useState<Project[]>(initialProjects);
     const [tasks, setTasks] = useState<Task[]>(initialTasks);
     const [notifications, setNotifications] = useState<Notification[]>(initialNotifications);
+    const [activities, setActivities] = useState<Activity[]>(initialActivities);
 
     const [currentView, setCurrentView] = useState<ViewType>(ViewType.Dashboard);
     const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
@@ -77,15 +80,134 @@ const App: React.FC = () => {
         setIsProjectModalOpen(false);
         handleViewChange(ViewType.Project, newProject.id);
     }, [handleViewChange]);
+    
+    const addActivity = useCallback((activity: Omit<Activity, 'id'>) => {
+        const newActivity: Activity = {
+            ...activity,
+            id: `a${Date.now()}${Math.random()}`,
+        };
+        setActivities(prev => [newActivity, ...prev]);
+    }, []);
 
-    const handleCreateTask = useCallback((newTaskData: Omit<Task, 'id'>) => {
+    const handleCreateTask = useCallback((taskData: Omit<Task, 'id' | 'creatorId'>) => {
+        if (!currentUser) return;
         const newTask: Task = {
-            ...newTaskData,
+            ...taskData,
             id: `t${Date.now()}`,
+            creatorId: currentUser.id,
         };
         setTasks(prev => [...prev, newTask]);
+        addActivity({
+            type: ActivityType.TaskCreate,
+            timestamp: new Date().toISOString(),
+            userId: currentUser.id,
+            projectId: newTask.projectId,
+            taskId: newTask.id,
+            details: { taskTitle: newTask.title }
+        });
         setIsTaskModalOpen(false);
-    }, []);
+    }, [currentUser, addActivity]);
+
+    const handleUpdateTask = useCallback((updatedTask: Task) => {
+        const originalTask = tasks.find(t => t.id === updatedTask.id);
+        if (!originalTask || !currentUser) return;
+
+        const newNotifications: Notification[] = [];
+
+        const createNotification = (message: string): Notification => {
+            return {
+                id: `n${Date.now()}${Math.random()}`,
+                type: 'update',
+                message,
+                user: {
+                    name: currentUser.name,
+                    avatarUrl: currentUser.avatarUrl,
+                },
+                timestamp: new Date().toISOString(),
+                isRead: false,
+            };
+        }
+
+        if (originalTask.status !== updatedTask.status) {
+            newNotifications.push(createNotification(`changed status to "${updatedTask.status}" for task "${originalTask.title}"`));
+            addActivity({
+                type: ActivityType.TaskUpdateStatus,
+                timestamp: new Date().toISOString(),
+                userId: currentUser.id,
+                projectId: updatedTask.projectId,
+                taskId: updatedTask.id,
+                details: { taskTitle: updatedTask.title, from: originalTask.status, to: updatedTask.status }
+            });
+        }
+        if (originalTask.priority !== updatedTask.priority) {
+            newNotifications.push(createNotification(`set priority to "${updatedTask.priority}" for task "${originalTask.title}"`));
+            addActivity({
+                type: ActivityType.TaskUpdatePriority,
+                timestamp: new Date().toISOString(),
+                userId: currentUser.id,
+                projectId: updatedTask.projectId,
+                taskId: updatedTask.id,
+                details: { taskTitle: updatedTask.title, from: originalTask.priority, to: updatedTask.priority }
+            });
+        }
+        if (originalTask.dueDate.split('T')[0] !== updatedTask.dueDate.split('T')[0]) {
+             newNotifications.push(createNotification(`updated due date to ${format(new Date(updatedTask.dueDate), 'MMM d')} for task "${originalTask.title}"`));
+             addActivity({
+                type: ActivityType.TaskUpdateDueDate,
+                timestamp: new Date().toISOString(),
+                userId: currentUser.id,
+                projectId: updatedTask.projectId,
+                taskId: updatedTask.id,
+                details: { 
+                    taskTitle: updatedTask.title, 
+                    from: format(new Date(originalTask.dueDate), 'MMM d'), 
+                    to: format(new Date(updatedTask.dueDate), 'MMM d')
+                }
+            });
+        }
+        if (originalTask.assigneeId !== updatedTask.assigneeId) {
+            const newAssignee = users.find(u => u.id === updatedTask.assigneeId);
+            const oldAssignee = users.find(u => u.id === originalTask.assigneeId);
+            if (newAssignee) {
+                 newNotifications.push(createNotification(`reassigned task "${originalTask.title}" to ${newAssignee.name}`));
+                 addActivity({
+                    type: ActivityType.TaskUpdateAssignee,
+                    timestamp: new Date().toISOString(),
+                    userId: currentUser.id,
+                    projectId: updatedTask.projectId,
+                    taskId: updatedTask.id,
+                    details: { 
+                        taskTitle: updatedTask.title, 
+                        from: oldAssignee?.name || 'Unassigned', 
+                        to: newAssignee.name 
+                    }
+                });
+            }
+        }
+
+        if (newNotifications.length > 0) {
+            setNotifications(prev => [...newNotifications, ...prev]);
+        }
+
+        setTasks(prevTasks => prevTasks.map(task => 
+            task.id === updatedTask.id ? updatedTask : task
+        ));
+    }, [tasks, currentUser, users, addActivity]);
+
+    const handleDeleteTask = useCallback((taskId: string) => {
+        const taskToDelete = tasks.find(t => t.id === taskId);
+        if (!taskToDelete || !currentUser) return;
+        
+        addActivity({
+            type: ActivityType.TaskDelete,
+            timestamp: new Date().toISOString(),
+            userId: currentUser.id,
+            projectId: taskToDelete.projectId,
+            taskId: taskToDelete.id,
+            details: { taskTitle: taskToDelete.title }
+        });
+        setTasks(prevTasks => prevTasks.filter(task => task.id !== taskId));
+    }, [tasks, currentUser, addActivity]);
 
     const handleUpdateUser = useCallback((userId: string, updates: Partial<User> & { currentPassword?: string }) => {
         const userToUpdate = users.find(u => u.id === userId);
@@ -123,7 +245,7 @@ const App: React.FC = () => {
 
 
     const renderContent = () => {
-        if (!currentUser && currentView !== ViewType.Dashboard) {
+        if (!currentUser && ![ViewType.Dashboard, ViewType.Calendar].includes(currentView)) {
              handleViewChange(ViewType.Dashboard);
         }
 
@@ -138,11 +260,20 @@ const App: React.FC = () => {
                         />;
             case ViewType.Project:
                 const project = projects.find(p => p.id === selectedProjectId);
-                return project ? <ProjectView project={project} allTasks={tasks} allUsers={users} /> : <div>Project not found</div>;
+                return project ? <ProjectView 
+                                    project={project} 
+                                    allTasks={tasks}
+                                    allActivities={activities}
+                                    allUsers={users} 
+                                    onUpdateTask={handleUpdateTask}
+                                    onDeleteTask={handleDeleteTask}
+                                /> : <div>Project not found</div>;
             case ViewType.Team:
                 return <TeamView users={users} currentUser={currentUser!} />;
             case ViewType.Profile:
                 return currentUser ? <ProfileView user={currentUser} onUpdateUser={handleUpdateUser} /> : <div>Please log in to see your profile.</div>;
+            case ViewType.Calendar:
+                return <CalendarView projects={projects} tasks={tasks} />;
             default:
                 return <Dashboard 
                             projects={projects} 

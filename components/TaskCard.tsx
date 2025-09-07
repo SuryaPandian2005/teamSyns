@@ -14,22 +14,26 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, users }) => {
             case TaskPriority.High:
                 return {
                     badge: 'bg-red-100 text-red-800',
-                    border: 'border-l-accent-red'
+                    border: 'border-l-accent-red',
+                    icon: <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" /></svg>
                 };
             case TaskPriority.Medium:
                 return {
                     badge: 'bg-yellow-100 text-yellow-800',
-                    border: 'border-l-accent-yellow'
+                    border: 'border-l-accent-yellow',
+                    icon: <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path d="M5 10a1 1 0 011-1h8a1 1 0 110 2H6a1 1 0 01-1-1z" /></svg>
                 };
             case TaskPriority.Low:
                 return {
                     badge: 'bg-green-100 text-green-800',
-                    border: 'border-l-accent-green'
+                    border: 'border-l-accent-green',
+                    icon: <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
                 };
             default:
                  return {
                     badge: 'bg-gray-100 text-gray-800',
-                    border: 'border-l-secondary'
+                    border: 'border-l-secondary',
+                    icon: null,
                 };
         }
     };
@@ -48,8 +52,9 @@ const TaskCard: React.FC<TaskCardProps> = ({ task, users }) => {
                     )}
                     <h4 className="font-semibold text-dark text-base">{task.title}</h4>
                 </div>
-                <span className={`text-xs font-medium px-2 py-1 rounded-full ${priorityStyles.badge} flex-shrink-0`}>
-                    {task.priority}
+                <span className={`inline-flex items-center space-x-1 text-xs font-medium px-2.5 py-1 rounded-full ${priorityStyles.badge} flex-shrink-0`}>
+                    {priorityStyles.icon}
+                    <span>{task.priority}</span>
                 </span>
             </div>
             <p className="text-sm text-gray-500 mt-2">{task.description}</p>

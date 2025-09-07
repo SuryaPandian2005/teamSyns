@@ -1,0 +1,5 @@
+{
+  "name": "TeamSync",
+  "description": "A SaaS-based project management platform designed to simplify project coordination for remote teams, featuring task assignments, collaborative dashboards, project timelines, and progress tracking.",
+  "requestFramePermissions": []
+}
